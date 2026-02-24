@@ -4,6 +4,7 @@ import tempfile
 import os
 
 from optimizer_sc_copy import run_optimizer
+run_optimizer("some_file.csv")
 
 st.set_page_config(
     page_title="SuperFantasy Optimizer",
@@ -62,3 +63,4 @@ if uploaded_file is not None:
 
     # Cleanup temp file
     os.unlink(temp_csv_path)
+
