@@ -4,7 +4,6 @@ import tempfile
 import os
 
 from optimizer_sc_copy import run_optimizer
-run_optimizer("some_file.csv")
 
 st.set_page_config(
     page_title="SuperFantasy Optimizer",
@@ -24,16 +23,12 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    # Save uploaded CSV to a temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
         tmp.write(uploaded_file.getbuffer())
         temp_csv_path = tmp.name
 
     st.success("CSV uploaded successfully")
 
-    # -----------------------------
-    # RUN OPTIMIZER
-    # -----------------------------
     if st.button("🚀 Run Optimizer"):
 
         with st.spinner("Optimizing squad..."):
@@ -45,9 +40,6 @@ if uploaded_file is not None:
                 st.subheader("📋 Optimized Squad")
                 st.dataframe(squad)
 
-                # -----------------------------
-                # DOWNLOAD OUTPUT
-                # -----------------------------
                 csv_out = squad.to_csv(index=False).encode("utf-8")
 
                 st.download_button(
@@ -61,6 +53,4 @@ if uploaded_file is not None:
                 st.error("Optimizer failed")
                 st.exception(e)
 
-    # Cleanup temp file
     os.unlink(temp_csv_path)
-
