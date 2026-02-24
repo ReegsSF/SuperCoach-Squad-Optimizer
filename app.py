@@ -26,16 +26,12 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    # Save uploaded CSV to a temp file
     with tempfile.NamedTemporaryFile(delete=False, suffix=".csv") as tmp:
         tmp.write(uploaded_file.getbuffer())
         temp_csv_path = tmp.name
 
     st.success("CSV uploaded successfully")
 
-    # -----------------------------
-    # RUN OPTIMIZER
-    # -----------------------------
     if st.button("🚀 Run Optimizer"):
 
         with st.spinner("Optimizing squad..."):
@@ -45,21 +41,39 @@ if uploaded_file is not None:
                 st.success("Optimization complete!")
 
                 # -----------------------------
+                # ENSURE PRIMARY POSITION EXISTS
+                # -----------------------------
+                if "primary_pos" not in squad.columns:
+
+                    def primary_position(pos_str):
+                        pos_list = pos_str.split("|")
+                        if "RUC" in pos_list:
+                            return "RUC"
+                        if "FWD" in pos_list:
+                            return "FWD"
+                        if "DEF" in pos_list:
+                            return "DEF"
+                        return "MID"
+
+                    squad["primary_pos"] = squad["position"].apply(primary_position)
+
+                # -----------------------------
                 # FULL SQUAD TABLE
                 # -----------------------------
                 st.subheader("📋 Full Optimized Squad")
                 st.dataframe(squad, use_container_width=True)
 
                 # -----------------------------
-                # ON FIELD
+                # ON FIELD (PRIMARY POS ONLY)
                 # -----------------------------
                 st.subheader("🏆 ON FIELD")
 
                 for line in ["DEF", "MID", "RUC", "FWD"]:
+
                     st.markdown(f"### {line}")
 
                     line_df = (
-                        squad[squad["position"].str.contains(line)]
+                        squad[squad["primary_pos"] == line]
                         .sort_values("adjusted_avg", ascending=False)
                     )
 
@@ -71,7 +85,7 @@ if uploaded_file is not None:
                         )
 
                 # -----------------------------
-                # BENCH (CHEAPEST PER LINE)
+                # BENCH (CHEAPEST BY PRIMARY POS)
                 # -----------------------------
                 st.subheader("🪑 BENCH")
 
@@ -83,10 +97,11 @@ if uploaded_file is not None:
                 }
 
                 for line, count in bench_structure.items():
+
                     st.markdown(f"### {line} Bench")
 
                     bench_df = (
-                        squad[squad["position"].str.contains(line)]
+                        squad[squad["primary_pos"] == line]
                         .sort_values("price")
                         .head(count)
                     )
@@ -114,5 +129,4 @@ if uploaded_file is not None:
                 st.error("Optimizer failed")
                 st.exception(e)
 
-    # Cleanup temp file
     os.unlink(temp_csv_path)
