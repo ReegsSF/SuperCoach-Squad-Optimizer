@@ -38,57 +38,52 @@ if uploaded_file is not None:
             try:
                 squad = run_optimizer(temp_csv_path)
 
-                st.success("Optimization complete!")
+                # -----------------------------
+                # ENSURE PRIMARY POSITION
+                # -----------------------------
+                def primary_position(pos_str):
+                    pos_list = pos_str.split("|")
+                    if "RUC" in pos_list:
+                        return "RUC"
+                    if "FWD" in pos_list:
+                        return "FWD"
+                    if "DEF" in pos_list:
+                        return "DEF"
+                    return "MID"
+
+                squad["primary_pos"] = squad["position"].apply(primary_position)
+
+                # Sort once by adjusted avg (descending)
+                squad = squad.sort_values("adjusted_avg", ascending=False)
 
                 # -----------------------------
-                # ENSURE PRIMARY POSITION EXISTS
+                # ON FIELD SELECTION
                 # -----------------------------
-                if "primary_pos" not in squad.columns:
+                on_field_structure = {
+                    "DEF": 6,
+                    "MID": 8,
+                    "RUC": 2,
+                    "FWD": 6,
+                }
 
-                    def primary_position(pos_str):
-                        pos_list = pos_str.split("|")
-                        if "RUC" in pos_list:
-                            return "RUC"
-                        if "FWD" in pos_list:
-                            return "FWD"
-                        if "DEF" in pos_list:
-                            return "DEF"
-                        return "MID"
+                on_field_rows = []
+                remaining = squad.copy()
 
-                    squad["primary_pos"] = squad["position"].apply(primary_position)
+                for pos, count in on_field_structure.items():
+                    selected = remaining[remaining["primary_pos"] == pos].head(count)
+                    on_field_rows.append(selected)
+                    remaining = remaining.drop(selected.index)
 
-                # -----------------------------
-                # FULL SQUAD TABLE
-                # -----------------------------
-                st.subheader("📋 Full Optimized Squad")
-                st.dataframe(squad, use_container_width=True)
+                # FLEX (best remaining player)
+                flex = remaining.head(1)
+                on_field_rows.append(flex)
+                remaining = remaining.drop(flex.index)
 
-                # -----------------------------
-                # ON FIELD (PRIMARY POS ONLY)
-                # -----------------------------
-                st.subheader("🏆 ON FIELD")
-
-                for line in ["DEF", "MID", "RUC", "FWD"]:
-
-                    st.markdown(f"### {line}")
-
-                    line_df = (
-                        squad[squad["primary_pos"] == line]
-                        .sort_values("adjusted_avg", ascending=False)
-                    )
-
-                    for _, r in line_df.iterrows():
-                        st.write(
-                            f"**{r['name']}** ({r['position']}) — "
-                            f"${r['price']:,} | "
-                            f"Adj Avg: {round(r['adjusted_avg'], 1)}"
-                        )
+                on_field_df = pd.concat(on_field_rows)
 
                 # -----------------------------
-                # BENCH (CHEAPEST BY PRIMARY POS)
+                # BENCH SELECTION (FROM REMAINING ONLY)
                 # -----------------------------
-                st.subheader("🪑 BENCH")
-
                 bench_structure = {
                     "DEF": 2,
                     "MID": 3,
@@ -96,21 +91,53 @@ if uploaded_file is not None:
                     "FWD": 2
                 }
 
-                for line, count in bench_structure.items():
+                bench_rows = []
 
-                    st.markdown(f"### {line} Bench")
-
-                    bench_df = (
-                        squad[squad["primary_pos"] == line]
+                for pos, count in bench_structure.items():
+                    selected = (
+                        remaining[remaining["primary_pos"] == pos]
                         .sort_values("price")
                         .head(count)
                     )
+                    bench_rows.append(selected)
+                    remaining = remaining.drop(selected.index)
 
-                    for _, r in bench_df.iterrows():
+                bench_df = pd.concat(bench_rows)
+
+                # -----------------------------
+                # DISPLAY
+                # -----------------------------
+                st.success("Optimization complete!")
+
+                st.subheader("🏆 ON FIELD")
+                for pos in ["DEF", "MID", "RUC", "FWD", "FLEX"]:
+                    st.markdown(f"### {pos}")
+
+                    if pos == "FLEX":
+                        rows = on_field_df.loc[flex.index]
+                    else:
+                        rows = on_field_df[on_field_df["primary_pos"] == pos]
+
+                    for _, r in rows.iterrows():
+                        bonus = f"+{r['elite_bonus']}" if r["elite_bonus"] > 0 else ""
                         st.write(
                             f"**{r['name']}** ({r['position']}) — "
                             f"${r['price']:,} | "
-                            f"Adj Avg: {round(r['adjusted_avg'], 1)}"
+                            f"Adj Avg: {round(r['adjusted_avg'], 1)} {bonus}"
+                        )
+
+                st.subheader("🪑 BENCH")
+                for pos in ["DEF", "MID", "RUC", "FWD"]:
+                    st.markdown(f"### {pos}")
+
+                    rows = bench_df[bench_df["primary_pos"] == pos]
+
+                    for _, r in rows.iterrows():
+                        bonus = f"+{r['elite_bonus']}" if r["elite_bonus"] > 0 else ""
+                        st.write(
+                            f"**{r['name']}** ({r['position']}) — "
+                            f"${r['price']:,} | "
+                            f"Adj Avg: {round(r['adjusted_avg'], 1)} {bonus}"
                         )
 
                 # -----------------------------
@@ -130,4 +157,3 @@ if uploaded_file is not None:
                 st.exception(e)
 
     os.unlink(temp_csv_path)
-
