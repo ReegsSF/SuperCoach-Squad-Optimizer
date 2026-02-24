@@ -1,11 +1,9 @@
 import pandas as pd
 from pulp import *
 
+def run_optimizer(input_csv_path):
 
-def run_optimizer(
-    input_csv="AFLSupercoach2026ProjAVG.csv",
-    output_csv="AFLSupercoach2026_Squad.csv"
-):
+    print("🔥 AFL SUPERCOACH 2026 – OPTIMISER 🔥")
 
     SALARY_CAP = 10_000_000
     BENCH_PRICE_LIMIT = 200_000
@@ -15,20 +13,12 @@ def run_optimizer(
 
     POINTS_WEIGHT = 1.0
     CASH_WEIGHT = 0.01
-
     ELITE_BONUS = 10
-
-    ELITE_THRESHOLDS = {
-        "DEF": 104,
-        "MID": 116,
-        "RUC": 115,
-        "FWD": 100
-    }
 
     # ------------------------
     # LOAD DATA
     # ------------------------
-    df = pd.read_csv(input_csv)
+    df = pd.read_csv(input_csv_path)
     df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
 
     df["positions"] = df["position"].apply(lambda x: x.split("|"))
@@ -66,14 +56,10 @@ def run_optimizer(
     # ------------------------
     # EARLY BYE
     # ------------------------
-    def detect_early_bye(val):
-        return 1 if isinstance(val, str) and "|" in val else 0
+    df["early_bye"] = df["bye"].apply(
+        lambda x: 1 if isinstance(x, str) and "|" in x else 0
+    )
 
-    df["early_bye"] = df["bye"].apply(detect_early_bye)
-
-    # ------------------------
-    # BYE ADJUSTMENT
-    # ------------------------
     def apply_bye_adjustment(row):
         avg = row["expected_avg"]
         price = row["price"]
@@ -91,9 +77,6 @@ def run_optimizer(
 
     df["adjusted_avg"] = df.apply(apply_bye_adjustment, axis=1)
 
-    # ------------------------
-    # CASH SCORE
-    # ------------------------
     max_cash = df["price_change"].max()
     df["cash_score"] = 0 if max_cash == 0 else df["price_change"] / max_cash
 
@@ -104,22 +87,12 @@ def run_optimizer(
     # ------------------------
     model = LpProblem("AFL_Supercoach_2026", LpMaximize)
 
-    x = LpVariable.dicts("squad", players, cat="Binary")
-
     field_positions = ["DEF", "MID", "RUC", "FWD", "FLEX"]
     bench_positions = ["DEF", "MID", "RUC", "FWD"]
 
-    y = LpVariable.dicts(
-        "onfield",
-        [(p, pos) for p in players for pos in field_positions],
-        cat="Binary"
-    )
-
-    z = LpVariable.dicts(
-        "bench",
-        [(p, pos) for p in players for pos in bench_positions],
-        cat="Binary"
-    )
+    x = LpVariable.dicts("squad", players, cat="Binary")
+    y = LpVariable.dicts("onfield", [(p, pos) for p in players for pos in field_positions], cat="Binary")
+    z = LpVariable.dicts("bench", [(p, pos) for p in players for pos in bench_positions], cat="Binary")
 
     # ------------------------
     # OBJECTIVE
@@ -145,23 +118,7 @@ def run_optimizer(
     model += lpSum(x[p] for p in players if "RUC" in df.loc[p, "positions"]) == 3
 
     # ------------------------
-    # EARLY BYE LIMITS
-    # ------------------------
-    EARLY_BYE_PRICE_THRESHOLD = 400_000
-
-    for pos in ["DEF", "MID", "FWD", "RUC"]:
-        model += lpSum(
-            x[p]
-            for p in players
-            if (
-                df.loc[p, "primary_pos"] == pos
-                and df.loc[p, "early_bye"] == 1
-                and df.loc[p, "price"] > EARLY_BYE_PRICE_THRESHOLD
-            )
-        ) <= 1
-
-    # ------------------------
-    # ON FIELD STRUCTURE
+    # STRUCTURE
     # ------------------------
     model += lpSum(y[(p, "DEF")] for p in players) == 6
     model += lpSum(y[(p, "MID")] for p in players) == 8
@@ -169,9 +126,6 @@ def run_optimizer(
     model += lpSum(y[(p, "FWD")] for p in players) == 6
     model += lpSum(y[(p, "FLEX")] for p in players) == 1
 
-    # ------------------------
-    # BENCH STRUCTURE
-    # ------------------------
     model += lpSum(z[(p, "DEF")] for p in players) == 2
     model += lpSum(z[(p, "MID")] for p in players) == 3
     model += lpSum(z[(p, "RUC")] for p in players) == 1
@@ -181,7 +135,6 @@ def run_optimizer(
     # ASSIGNMENT RULES
     # ------------------------
     for p in players:
-
         for pos in field_positions:
             model += y[(p, pos)] <= x[p]
             if pos != "FLEX" and pos not in df.loc[p, "positions"]:
@@ -207,12 +160,37 @@ def run_optimizer(
     # ------------------------
     # SOLVE
     # ------------------------
-    model.solve(PULP_CBC_CMD(msg=0))
-
+    model.solve()
     if LpStatus[model.status] != "Optimal":
-        raise Exception("Infeasible solution")
+        raise Exception("❌ Infeasible solution")
 
-    squad = df[[x[p].value() == 1 for p in players]].copy()
-    squad.to_csv(output_csv, index=False)
+    # ------------------------
+    # RETURN OUTPUT FOR STREAMLIT
+    # ------------------------
+    rows = []
 
-    return squad
+    for p in players:
+        for pos in field_positions:
+            if y[(p, pos)].value() == 1:
+                rows.append({
+                    "name": df.loc[p, "name"],
+                    "line": pos,
+                    "position": df.loc[p, "position"],
+                    "price": df.loc[p, "price"],
+                    "adjusted_avg": df.loc[p, "adjusted_avg"],
+                    "elite_bonus": df.loc[p, "elite_bonus"],
+                    "role": "On Field"
+                })
+        for pos in bench_positions:
+            if z[(p, pos)].value() == 1:
+                rows.append({
+                    "name": df.loc[p, "name"],
+                    "line": pos,
+                    "position": df.loc[p, "position"],
+                    "price": df.loc[p, "price"],
+                    "adjusted_avg": df.loc[p, "adjusted_avg"],
+                    "elite_bonus": df.loc[p, "elite_bonus"],
+                    "role": "Bench"
+                })
+
+    return pd.DataFrame(rows)
