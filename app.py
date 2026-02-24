@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🔥 AFL SuperCoach Optimizer")
+st.title("🟢 AFL SuperCoach Optimizer 🟢")
 st.write("Upload your SuperCoach CSV and run the optimizer.")
 
 # -----------------------------
@@ -130,3 +130,4 @@ if uploaded_file is not None:
                 st.exception(e)
 
     os.unlink(temp_csv_path)
+
