@@ -229,3 +229,4 @@ return squad
 if __name__ == "__main__":
 run_optimizer("input.csv")
 
+return squad_out
