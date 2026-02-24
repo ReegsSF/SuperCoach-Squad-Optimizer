@@ -18,7 +18,7 @@ if uploaded_file:
     if st.button("Run Optimizer"):
         with st.spinner("Running optimizer..."):
             subprocess.run(
-                ["python", "optimizer.py"],
+                ["python", "optimizer_sc_copy.py"],
                 check=True
             )
 
@@ -32,4 +32,5 @@ if uploaded_file:
             data=result.to_csv(index=False),
             file_name="optimized_squad.csv",
             mime="text/csv"
+
         )
