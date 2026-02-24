@@ -2,6 +2,10 @@ import pandas as pd
 from pulp import *
 
 def run_optimizer(input_csv_path):
+
+INPUT_FILE = input_csv_path
+df = pd.read_csv(INPUT_FILE)
+
 print("🔥 AFL SUPERCOACH 2026 – OPTIMISER 🔥")
 
 SALARY_CAP = 10_000_000
@@ -224,3 +228,4 @@ return squad
 # -------------------------------------------------
 if __name__ == "__main__":
 run_optimizer("input.csv")
+
