@@ -24,7 +24,7 @@ def run_optimizer(input_csv_path):
         # ------------------------
         # LOAD DATA
         # ------------------------
-        df = pd.read_csv("AFLSupercoach2026ProjAVG.csv")
+        df = pd.read_csv(input_csv_path)
         df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
 
         df["positions"] = df["position"].apply(lambda x: x.split("|"))
@@ -305,3 +305,4 @@ def run_optimizer(input_csv_path):
         print("Total Squad Adjusted Avg:", round(squad["adjusted_avg"].sum(), 2))
         print("Total Projected Price Change:", f"${total_price_change:,.0f}")
         return on_field, bench
+
