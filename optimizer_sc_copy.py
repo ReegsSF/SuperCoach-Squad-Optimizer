@@ -3,8 +3,6 @@ from pulp import *
 
 def run_optimizer(input_csv_path):
 
-    print("🔥 AFL SUPERCOACH 2026 – OPTIMISER 🔥")
-
     SALARY_CAP = 10_000_000
     BENCH_PRICE_LIMIT = 200_000
 
@@ -106,7 +104,7 @@ def run_optimizer(input_csv_path):
     )
 
     # ------------------------
-    # SQUAD CONSTRAINTS
+    # CONSTRAINTS
     # ------------------------
     model += lpSum(x[p] for p in players) == 31
     model += lpSum(x[p] * df.loc[p, "price"] for p in players) <= SALARY_CAP
@@ -117,9 +115,6 @@ def run_optimizer(input_csv_path):
     model += lpSum(x[p] for p in players if "FWD" in df.loc[p, "positions"]) >= 8
     model += lpSum(x[p] for p in players if "RUC" in df.loc[p, "positions"]) == 3
 
-    # ------------------------
-    # STRUCTURE
-    # ------------------------
     model += lpSum(y[(p, "DEF")] for p in players) == 6
     model += lpSum(y[(p, "MID")] for p in players) == 8
     model += lpSum(y[(p, "RUC")] for p in players) == 2
@@ -131,9 +126,6 @@ def run_optimizer(input_csv_path):
     model += lpSum(z[(p, "RUC")] for p in players) == 1
     model += lpSum(z[(p, "FWD")] for p in players) == 2
 
-    # ------------------------
-    # ASSIGNMENT RULES
-    # ------------------------
     for p in players:
         for pos in field_positions:
             model += y[(p, pos)] <= x[p]
@@ -157,15 +149,12 @@ def run_optimizer(input_csv_path):
             <= BENCH_PRICE_LIMIT
         )
 
-    # ------------------------
-    # SOLVE
-    # ------------------------
     model.solve()
     if LpStatus[model.status] != "Optimal":
-        raise Exception("❌ Infeasible solution")
+        raise Exception("Infeasible solution")
 
     # ------------------------
-    # RETURN OUTPUT FOR STREAMLIT
+    # RETURN CLEAN OUTPUT
     # ------------------------
     rows = []
 
@@ -175,17 +164,20 @@ def run_optimizer(input_csv_path):
                 rows.append({
                     "name": df.loc[p, "name"],
                     "line": pos,
+                    "primary_pos": df.loc[p, "primary_pos"],
                     "position": df.loc[p, "position"],
                     "price": df.loc[p, "price"],
                     "adjusted_avg": df.loc[p, "adjusted_avg"],
                     "elite_bonus": df.loc[p, "elite_bonus"],
                     "role": "On Field"
                 })
+
         for pos in bench_positions:
             if z[(p, pos)].value() == 1:
                 rows.append({
                     "name": df.loc[p, "name"],
                     "line": pos,
+                    "primary_pos": df.loc[p, "primary_pos"],
                     "position": df.loc[p, "position"],
                     "price": df.loc[p, "price"],
                     "adjusted_avg": df.loc[p, "adjusted_avg"],
