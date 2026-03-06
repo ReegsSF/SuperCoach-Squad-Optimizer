@@ -15,10 +15,10 @@ def run_optimizer(input_csv_path):
         ELITE_BONUS = 10
 
         ELITE_THRESHOLDS = {
-            "DEF": 104,
-            "MID": 116,
-            "RUC": 115,
-            "FWD": 100
+            "DEF": 100,
+            "MID": 110,
+            "RUC": 110,
+            "FWD": 95
         }
 
         # ------------------------
@@ -47,13 +47,13 @@ def run_optimizer(input_csv_path):
             avg = row["expected_avg"]
             pos = row["primary_pos"]
 
-            if pos == "DEF" and avg >= 104:
+            if pos == "DEF" and avg >= 100:
                 return ELITE_BONUS
-            if pos == "MID" and avg >= 116:
+            if pos == "MID" and avg >= 110:
                 return ELITE_BONUS
-            if pos == "RUC" and avg >= 115:
+            if pos == "RUC" and avg >= 110:
                 return ELITE_BONUS
-            if pos == "FWD" and avg >= 100:
+            if pos == "FWD" and avg >= 95:
                 return ELITE_BONUS
             return 0
 
@@ -305,4 +305,5 @@ def run_optimizer(input_csv_path):
         print("Total Squad Adjusted Avg:", round(squad["adjusted_avg"].sum(), 2))
         print("Total Projected Price Change:", f"${total_price_change:,.0f}")
         return on_field, bench
+
 
